@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+
+# generating output files from provided input files
+#
+# requires:
+#   time (not a built-in keyword one)
+#
+
+if [ -f "${_SETTER_ROOT_DIR}/env/colors.sh" ]; then
+  . "${_SETTER_ROOT_DIR}/env/colors.sh" 
+fi
+
+SCRIPT_NAME="$(basename "$0" | tr '-' ' ')"
+
+function usage() {
+  cat << EOF
+Usage: $SCRIPT_NAME [options...]
+
+Options:
+  -h, --help                Show this help
+  -c, --checker <file>      Checker file to run (default: checker.out)
+  -i, --input-dir <dir>     Directory that contains input files (default: in)
+  -o, --output-dir <dir>    Directory to place output files (default: out)
+EOF
+}
+
+options='hc:i:o:'
+long_options='help,checker:,input:,output:'
+
+OPTS=$(getopt --name "$SCRIPT_NAME" --options "$options" \
+      --longoptions "$long_options" -- "$@")
+
+if (( $? != 0 )); then
+  usage
+  exit 2
+fi
+eval set -- "$OPTS"
+
+input_dir="./in"
+output_dir="./out"
+checker="./checker.out"
+time_command="$(which time)" # do not use a bash built-in keyword
+if [[ -z "$time_command" ]]; then
+  echo "${SCRIPT_NAME}: 'time' command is required but not found"
+  exit 127
+fi
+
+if ! which timeout &> /dev/null; then
+  echo "${SCRIPT_NAME}: 'timeout' command is required but not found"
+  exit 127
+fi
+
+while true; do
+  case "$1" in
+    -h | --help)
+      usage; exit 0 ;;
+    -c | --checker)
+      checker="$2"; shift 2 ;;
+    -i | --input-dir)
+      input_dir="$2"; shift 2 ;;
+    -o | --output-dir)
+      output_dir="$2"; shift 2 ;;
+    --)
+      shift; break ;;
+    *)
+      echo "Unknown option: $1" >&2; shift ;;
+  esac
+done
+
+if [[ "$(basename "$checker")" == "$checker" ]]; then
+  checker="./${checker}"
+fi
+
+if [[ ! -x "$checker" ]]; then
+  echo "Could not find checker file or not a executable file '${checker}'"
+  exit 2
+fi
+
+if [[ ! -d "$input_dir" ]]; then
+  echo "Could not find input directory '${input_dir}'"
+  exit 2
+fi
+
+if [[ -d "$output_dir" ]]; then
+  echo -n "Directory $output_dir already exists. Overwrite? [Y/n] "
+  read answer
+  case "$answer" in 
+    y | Y)
+      rm -rf "$output_dir" ;;
+    *)
+      echo "Aborted"; exit 0 ;;
+  esac
+fi
+mkdir -p "$output_dir"
+
+input_num=$(ls "${input_dir}"/*.in 2> /dev/null | wc -l)
+
+if (( input_num == 0 )); then
+  echo "No input file (*.in) found in $input_dir"
+  exit 2
+fi
+
+declare -i input_cnt=1
+exec_info_file="$(mktemp)"
+exec_info_format=$(cat << EOF
+elapsed time:%e
+memory:%M
+EOF
+)
+
+trap 'rm -f "${exec_info_file}"' EXIT
+
+exit_code=0
+for input in "${input_dir}"/*.in; do
+  input_basename=$(basename "$input" .in)
+  output="${output_dir}/${input_basename}.out"
+  echo -en " (${LIGHT_GREEN}${input_cnt}${RESET}/${MAGENTA}${input_num}${RESET}) ${input}"
+  "$time_command" -f "$exec_info_format" -o "$exec_info_file" \
+      "$checker" < "$input" > "$output" 2> /dev/null 
+
+  if (( $? != 0 )); then
+    echo -e "\t${B_RED}FAILED${RESET}"
+    rm -f "$output"
+    exit_code=1
+  else
+    elapsed_time=$(cat "$exec_info_file" | grep 'elapsed time' | awk -F: '{print $2}')
+    memory=$(cat "$exec_info_file" | grep 'memory' | awk -F: '{print $2}')
+    memory=$(( memory / 1024 ))
+    echo -e "${LIGHT_BLUE}\t-->${RESET} ${output}\t${B_GREEN}OK${RESET} (${elapsed_time}s, ${memory} MB)"
+  fi
+  input_cnt+=1
+done
+
+exit $exit_code

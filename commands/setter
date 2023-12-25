@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+
+# this script is used for judging a solution and generating output locally
+#
+
+VERSION="0.0.1"
+SCRIPT_NAME="$(basename "$0")"
+
+function usage() {
+  cat << EOF
+Usage: $SCRIPT_NAME [options...] <command>
+
+Options:
+  -h, --help            Show this help
+  -V, --version         Show version number
+
+Available commands:
+  judge                 Run and check the solution
+  gen                   Generate output from input files
+EOF
+}
+
+function display_version() {
+  echo "$SCRIPT_NAME version ${VERSION}"
+}
+
+exec_file="$(readlink -f "$0")"
+commands_path="$(dirname "$exec_file")"
+export _SETTER_ROOT_DIR="$(dirname "$commands_path")"
+export PATH="$PATH:${commands_path}"
+
+subcommand="$1"
+case "$subcommand" in 
+  "" | -h | --help)
+    usage; exit 0 ;;
+  -V | --version)
+    display_version; exit 0 ;;
+  -*)
+    echo "Unknown option: $subcommand" >&2
+    usage; exit 2 ;;
+  *)
+    command_path="$(command -v "${SCRIPT_NAME}-${subcommand}")"
+    if [[ ! -x "$command_path" ]]; then
+      echo "${SCRIPT_NAME}: unknown command '$1'. See ${SCRIPT_NAME} --help." >&2
+      exit 127
+    fi
+    shift
+    exec "$command_path" "$@"
+esac

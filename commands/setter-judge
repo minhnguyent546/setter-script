@@ -1,0 +1,163 @@
+#!/usr/bin/env bash
+
+# judging a solution locally
+#
+# requires:
+#   time (not a built-in keyword one)
+#   timeout
+#
+
+if [ -f "${_SETTER_ROOT_DIR}/env/colors.sh" ]; then
+  . "${_SETTER_ROOT_DIR}/env/colors.sh" 
+fi
+
+SCRIPT_NAME="$(basename "$0" | tr '-' ' ')"
+
+function usage() {
+  cat << EOF
+Usage: $SCRIPT_NAME [options...]
+
+Options:
+  -h, --help                Show this help
+  -s, --source <file>       Source file to check (default: solution.out)
+  -i, --input-dir <dir>     Directory that contains input files (default: in)
+  -o, --output-dir <dir>    Directory to place output files (default: out)
+  -t, --time <second>       Set time limit (default: 1s)
+  -m, --memory <memory>     Set memory limit (default: 256MB)
+EOF
+  exit 0
+}
+
+options='hs:i:o:t:m:'
+long_options='help,source:,input:,output:,time:,memory:'
+
+OPTS=$(getopt --name "$SCRIPT_NAME" --options "$options" \
+      --longoptions "$long_options" -- "$@")
+
+if (( $? != 0 )); then
+  usage
+  exit 2
+fi
+eval set -- "$OPTS"
+
+input_dir="./in"
+output_dir="./out"
+source_file="./source.out"
+time_limit="1s"
+memory_limit="256MB"
+time_command="$(which time)"
+if [[ -z "$time_command" ]]; then
+  echo "${SCRIPT_NAME}: 'time' command is required but not found"
+  exit 127
+fi
+if ! which timeout &> /dev/null; then
+  echo "${SCRIPT_NAME}: 'timeout' command is required but not found"
+  exit 127
+fi
+
+while true; do
+  case "$1" in
+    -h | --help)
+      usage ;;
+    -s | --source)
+      source_file="$2"; shift 2 ;;
+    -i | --input-dir)
+      input_dir="$2"; shift 2 ;;
+    -o | --output-dir)
+      output_dir="$2"; shift 2 ;;
+    -t | --time)
+      time_limit="${2%s}s"; shift 2 ;;
+    -m | --memory)
+      memory_limit="$2"; shift 2 ;;
+    --)
+      shift; break ;;
+    *)
+      echo "Unknown option: $1" >&2; shift ;;
+  esac
+done
+
+if [[ "$(basename "$source_file")" == "$source_file" ]]; then
+  source_file="./${source_file}"
+fi
+
+if [[ ! -x "$source_file" ]]; then
+  echo "Could not find source file or not a executable file '${source_file}'"
+  exit 2
+elif [[ ! -d "$input_dir" ]]; then
+  echo "Could not find input directory '${input_dir}'"
+  exit 2
+elif [[ ! -d "$output_dir" ]]; then
+  echo "Could not find output directory '${output_dir}'"
+  exit 2
+fi
+
+input_num=$(ls "${input_dir}"/*.in 2> /dev/null | wc -l)
+
+if (( input_num == 0 )); then
+  echo "No input file (*.in) found in $input_dir"
+  exit 2
+fi
+
+declare -i input_cnt=1 total_ac=0
+output_temp_file="$(mktemp)"
+exec_info_file="$(mktemp)"
+exec_info_format=$(cat << EOF
+elapsed time:%e
+memory:%M
+EOF
+)
+trap 'rm "$exec_info_file" "$output_temp_file"' EXIT
+
+exit_code=0
+total_exec_time=0
+max_exec_time=
+max_memory=
+for input in "${input_dir}"/*.in; do
+  input_basename=$(basename "$input" .in)
+  ans="${output_dir}/${input_basename}.out"
+  echo -en " (${LIGHT_GREEN}${input_cnt}${RESET}/${MAGENTA}${input_num}${RESET}) ${input}"
+  if [[ ! -f "$ans" ]]; then
+    echo -e "\t${GRAY}SKIP${RESET} (${B_BLUE}${ans}${RESET} not found)"
+    exit_code=1
+    continue
+  fi
+
+  timeout "$time_limit" "$time_command" -f "$exec_info_format" -o "$exec_info_file" \
+      "$source_file" < "$input" > "$output_temp_file"
+  exec_exit_code=$?
+  if (( exec_exit_code != 0 )); then
+    if (( exec_exit_code == 124 )); then 
+      # command times out 
+      echo -e "\t${B_RED}TLE${RESET} (> $time_limit)"
+    else
+      # assume exit code is returned by `source_file`
+      echo -e "\t${B_RED}RUN TIME${RESET} (exit_code=$exec_exit_code)"
+    fi
+    exit_code=1
+  elif ! diff -Zb "$output_temp_file" "$ans" &> /dev/null; then
+    # wrong answer
+    echo -e "\t${B_RED}WA${RESET}"
+    exit_code=1
+  else
+    elapsed_time=$(cat "$exec_info_file" | grep 'elapsed time' | awk -F: '{print $2}')
+    memory=$(cat "$exec_info_file" | grep 'memory' | awk -F: '{print $2}')
+
+    if [[ -z "$max_exec_time" ]] || (( $(echo "$max_exec_time < $elapsed_time" | bc -l) )); then
+      max_exec_time="$elapsed_time"
+    fi
+    if [[ -z "$max_memory" ]] || (( $(echo "$max_memory < $memory" | bc -l) )); then
+      max_memory="$memory"
+    fi
+    memory=$(( memory / 1024 ))
+    total_exec_time=$( echo "$total_exec_time + $elapsed_time" | bc -l )
+    echo -e "\t${B_GREEN}OK${RESET} (${elapsed_time}s, ${memory} MB)"
+    total_ac+=1
+  fi
+  input_cnt+=1
+done
+
+echo "Total AC: ${total_ac}/${input_num}"
+echo "Finished in  : ${total_exec_time}s"
+echo "Max run time : ${max_exec_time}s"
+echo "Max memory   : $(( max_memory / 1024)) MB"
+exit $exit_code
