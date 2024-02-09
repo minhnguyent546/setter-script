@@ -31,3 +31,9 @@ source ~/.bashrc
 ```bash
 setter --version
 ```
+
+## TODO list
+
+- [ ] Change output alignment for more readability.
+- [ ] Summary in `setter gen`.
+- [ ] Testing?
