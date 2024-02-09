@@ -1,27 +1,28 @@
 #!/usr/bin/env bash
 
-# this script is used for judging a solution and generating output locally
+# this script is used for judging a solution
+# and generating output locally
 #
 
-VERSION="0.0.1"
-SCRIPT_NAME="$(basename "$0")"
+declare -r __script_name='setter'
+declare -r __script_version='0.1.2'
 
 function usage() {
   cat << EOF
-Usage: $SCRIPT_NAME [options...] <command>
+Usage: ${__script_name} [options...] <command>
 
 Options:
-  -h, --help            Show this help
-  -V, --version         Show version number
+  -h, --help            Show this help message
+  -V, --version         Show script version
 
 Available commands:
-  judge                 Run and check the solution
+  judge                 Judge your solution
   gen                   Generate output from input files
 EOF
 }
 
-function display_version() {
-  echo "$SCRIPT_NAME version ${VERSION}"
+function version() {
+  printf "%s v%s\n" "${__script_name}" "${__script_version}"
 }
 
 exec_file="$(readlink -f "$0")"
@@ -34,14 +35,16 @@ case "$subcommand" in
   "" | -h | --help)
     usage; exit 0 ;;
   -V | --version)
-    display_version; exit 0 ;;
+    version; exit 0 ;;
   -*)
-    echo "Unknown option: $subcommand" >&2
-    usage; exit 2 ;;
+    printf "%s: invalid option '%s'\n" "${__script_name}" "$subcommand" >&2
+    printf "See '%s --help' for more information.\n" "${__script_name}" >&2
+    exit 2 ;;
   *)
-    command_path="$(command -v "${SCRIPT_NAME}-${subcommand}")"
+    command_path="$(command -v "${__script_name}-${subcommand}")"
     if [[ ! -x "$command_path" ]]; then
-      echo "${SCRIPT_NAME}: unknown command '$1'. See ${SCRIPT_NAME} --help." >&2
+      printf "%s: unknown command '%s'\n" "${__script_name}" "$subcommand" >&2
+      printf "See '%s --help' for more information.\n" "${__script_name}" >&2
       exit 127
     fi
     shift

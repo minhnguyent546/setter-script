@@ -3,52 +3,52 @@
 # generating output files from provided input files
 #
 # requires:
-#   time (not a built-in keyword one)
+#   time (not a shell keyword one)
 #
+
+declare -r __script_name='setter gen'
 
 if [ -f "${_SETTER_ROOT_DIR}/env/colors.sh" ]; then
   . "${_SETTER_ROOT_DIR}/env/colors.sh" 
 fi
 
-SCRIPT_NAME="$(basename "$0" | tr '-' ' ')"
-
-function usage() {
-  cat << EOF
-Usage: $SCRIPT_NAME [options...]
-
-Options:
-  -h, --help                Show this help
-  -c, --checker <file>      Checker file to run (default: checker.out)
-  -i, --input-dir <dir>     Directory that contains input files (default: in)
-  -o, --output-dir <dir>    Directory to place output files (default: out)
-EOF
-}
-
-options='hc:i:o:'
-long_options='help,checker:,input:,output:'
-
-OPTS=$(getopt --name "$SCRIPT_NAME" --options "$options" \
-      --longoptions "$long_options" -- "$@")
-
-if (( $? != 0 )); then
-  usage
-  exit 2
-fi
-eval set -- "$OPTS"
-
-input_dir="./in"
-output_dir="./out"
-checker="./checker.out"
-time_command="$(which time)" # do not use a bash built-in keyword
+input_dir="in"
+output_dir="out"
+checker="checker.out"
+time_command="$(which time 2> /dev/null)" # do not use shell keyword
 if [[ -z "$time_command" ]]; then
-  echo "${SCRIPT_NAME}: 'time' command is required but not found"
+  printf "%s: 'time' command is required but not found\n" "${__script_name}" >&2
   exit 127
 fi
 
 if ! which timeout &> /dev/null; then
-  echo "${SCRIPT_NAME}: 'timeout' command is required but not found"
+  printf "%s: 'timeout' command is required but not found\n" "${__script_name}" >&2
   exit 127
 fi
+
+function usage() {
+  cat << EOF
+Usage: ${__script_name} [options...]
+
+Options:
+  -c, --checker <file>      Checker file to run (default: ${checker})
+  -i, --input-dir <dir>     Directory that contains input files (default: ${input_dir})
+  -o, --output-dir <dir>    Directory to place output files (default: ${output_dir})
+  -h, --help                Show this help message
+EOF
+}
+
+options='c:i:o:h'
+long_options='checker:,input:,output:,help'
+
+OPTS=$(getopt --name "$__script_name" --options "$options" \
+      --longoptions "$long_options" -- "$@")
+
+if (( $? != 0 )); then
+  printf "See '%s --help' for more information.\n" "${__script_name}" >&2
+  exit 2
+fi
+eval set -- "$OPTS"
 
 while true; do
   case "$1" in
@@ -67,36 +67,38 @@ while true; do
   esac
 done
 
-if [[ "$(basename "$checker")" == "$checker" ]]; then
-  checker="./${checker}"
-fi
-
-if [[ ! -x "$checker" ]]; then
-  echo "Could not find checker file or not a executable file '${checker}'"
+if [[ ! -f "$checker" ]]; then
+  printf "Could not find checker file '%s'\n" "${checker}" >&2
   exit 2
 fi
 
 if [[ ! -d "$input_dir" ]]; then
-  echo "Could not find input directory '${input_dir}'"
+  printf "Could not find input directory '%s'\n" "${input_dir}" >&2
   exit 2
 fi
 
 if [[ -d "$output_dir" ]]; then
-  echo -n "Directory $output_dir already exists. Overwrite? [Y/n] "
+  printf "Directory '%s' already exists. Overwrite? [Y/n] " "$output_dir"
   read answer
   case "$answer" in 
     y | Y)
       rm -rf "$output_dir" ;;
     *)
-      echo "Aborted"; exit 0 ;;
+      printf "Aborted\n" >&2; exit 1 ;;
   esac
 fi
+
 mkdir -p "$output_dir"
 
-input_num=$(ls "${input_dir}"/*.in 2> /dev/null | wc -l)
+if [[ "$(basename "$checker")" == "$checker" ]]; then
+  checker="./${checker}"
+fi
+
+input_num=$(find "$input_dir" -iname "*.in" | wc -l)
 
 if (( input_num == 0 )); then
-  echo "No input file (*.in) found in $input_dir"
+  printf "No input file found in '%s'\n" "$input_dir" >&2
+  printf "Aborted\n" >&2
   exit 2
 fi
 
