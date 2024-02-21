@@ -9,23 +9,24 @@
 
 declare -r __script_name='setter judge'
 
-if [ -f "${_SETTER_ROOT_DIR}/env/colors.sh" ]; then
-  . "${_SETTER_ROOT_DIR}/env/colors.sh" 
+if [ -f "${_SETTER_DIR}/env/colors.sh" ]; then
+  . "${_SETTER_DIR}/env/colors.sh"
 fi
+source "${_SETTER_DIR}/utils/util.sh"
 
 src_file="sol.out"
 input_dir="in"
 output_dir="out"
 time_limit="1s"
 memory_limit="256MB"
-time_command="$(which time)"
+time_command="$(which time 2> /dev/null)" # do not use time shell keyword
+
 if [[ -z "$time_command" ]]; then
-  printf "%s: 'time' command is required but not found\n" "${__script_name}" >&2
-  exit 127
+  missing_cmd "time"
 fi
-if ! which timeout &> /dev/null; then
-  printf "%s: 'timeout' command is required but not found\n" "${__script_name}" >&2
-  exit 127
+
+if ! cmd_exists "timeout"; then
+  missing_cmd "timeout"
 fi
 
 function usage() {
@@ -45,11 +46,11 @@ EOF
 options='hs:i:o:t:m:'
 long_options='help,source:,input:,output:,time:,memory:'
 
-OPTS=$(getopt --name "$SCRIPT_NAME" --options "$options" \
+OPTS=$(getopt --name "$__script_name" --options "$options" \
       --longoptions "$long_options" -- "$@")
 
 if (( $? != 0 )); then
-  usage
+  show_try_help
   exit 2
 fi
 eval set -- "$OPTS"
@@ -76,13 +77,17 @@ while true; do
 done
 
 if [[ ! -x "$src_file" ]]; then
-  printf "%s: could not find source file or not a executable file: %s\n" "${__script_name}" "${src_file}" >&2
+  ecerr "'%s' is not executable file" "$src_file"
   exit 2
-elif [[ ! -d "$input_dir" ]]; then
-  printf "Could not find input directory '%s'\n" "$input_dir" >&2
+fi
+
+if [[ ! -d "$input_dir" ]]; then
+  ecerr "could not find input directory: %s" "$input_dir"
   exit 2
-elif [[ ! -d "$output_dir" ]]; then
-  printf "Could not find output directory '%s'\n" "$output_dir" >&2
+fi
+
+if [[ ! -d "$output_dir" ]]; then
+  ecerr "could not find output directory: %s" "$output_dir"
   exit 2
 fi
 
@@ -93,8 +98,7 @@ fi
 input_num=$(find "$input_dir" -iname "*.in" | wc -l)
 
 if (( input_num == 0 )); then
-  printf "No input file found in '%s'\n" "$input_dir" >&2
-  printf "Aborted\n" >&2
+  ecerr "no input file found in '%s'" "$input_dir"
   exit 2
 fi
 
@@ -112,6 +116,7 @@ exit_code=0
 total_exec_time=0
 max_exec_time=
 max_memory=
+
 for input in "${input_dir}"/*.in; do
   input_basename=$(basename "$input" .in)
   ans="${output_dir}/${input_basename}.out"
@@ -156,7 +161,7 @@ for input in "${input_dir}"/*.in; do
   input_cnt+=1
 done
 
-echo "Total AC: ${total_ac}/${input_num}"
+echo "Total AC     : ${total_ac}/${input_num}"
 echo "Finished in  : ${total_exec_time}s"
 echo "Max run time : ${max_exec_time}s"
 echo "Max memory   : $(( max_memory / 1024)) MB"

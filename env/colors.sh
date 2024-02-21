@@ -20,6 +20,7 @@ LIGHT_CYAN='\033[96m'
 WHITE='\033[97m'
 
 # bold colors
+BOLD='\033[1m'
 B_BLACK='\033[1;30m'
 B_RED='\033[1;31m'
 B_GREEN='\033[1;32m'

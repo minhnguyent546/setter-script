@@ -8,22 +8,22 @@
 
 declare -r __script_name='setter gen'
 
-if [ -f "${_SETTER_ROOT_DIR}/env/colors.sh" ]; then
-  . "${_SETTER_ROOT_DIR}/env/colors.sh" 
+if [[ -f "${_SETTER_DIR}/env/colors.sh" ]]; then
+  source "${_SETTER_DIR}/env/colors.sh"
 fi
+source "${_SETTER_DIR}/utils/util.sh"
 
 input_dir="in"
 output_dir="out"
 checker="checker.out"
-time_command="$(which time 2> /dev/null)" # do not use shell keyword
+time_command="$(which time 2> /dev/null)" # do not use time shell keyword
+
 if [[ -z "$time_command" ]]; then
-  printf "%s: 'time' command is required but not found\n" "${__script_name}" >&2
-  exit 127
+  missing_cmd "time"
 fi
 
-if ! which timeout &> /dev/null; then
-  printf "%s: 'timeout' command is required but not found\n" "${__script_name}" >&2
-  exit 127
+if ! cmd_exists "timeout"; then
+  missing_cmd "timeout"
 fi
 
 function usage() {
@@ -45,7 +45,7 @@ OPTS=$(getopt --name "$__script_name" --options "$options" \
       --longoptions "$long_options" -- "$@")
 
 if (( $? != 0 )); then
-  printf "See '%s --help' for more information.\n" "${__script_name}" >&2
+  show_try_help
   exit 2
 fi
 eval set -- "$OPTS"
@@ -68,23 +68,23 @@ while true; do
 done
 
 if [[ ! -f "$checker" ]]; then
-  printf "Could not find checker file '%s'\n" "${checker}" >&2
+  ecerr "could not find checker file: %s" "$checker"
   exit 2
 fi
 
 if [[ ! -d "$input_dir" ]]; then
-  printf "Could not find input directory '%s'\n" "${input_dir}" >&2
+  ecerr "could not find input directory: %s" "$input_dir"
   exit 2
 fi
 
 if [[ -d "$output_dir" ]]; then
   printf "Directory '%s' already exists. Overwrite? [Y/n] " "$output_dir"
-  read answer
+  read -r answer
   case "$answer" in 
     y | Y)
       rm -rf "$output_dir" ;;
     *)
-      printf "Aborted\n" >&2; exit 1 ;;
+      exit 0 ;;
   esac
 fi
 
@@ -97,8 +97,7 @@ fi
 input_num=$(find "$input_dir" -iname "*.in" | wc -l)
 
 if (( input_num == 0 )); then
-  printf "No input file found in '%s'\n" "$input_dir" >&2
-  printf "Aborted\n" >&2
+  ecerr "no input file found in '%s'" "$input_dir"
   exit 2
 fi
 
