@@ -9,12 +9,9 @@
 
 declare -r __script_name='setter judge'
 
-if [ -f "${_SETTER_DIR}/env/colors.sh" ]; then
-  . "${_SETTER_DIR}/env/colors.sh"
-fi
+source "${_SETTER_DIR}/env/colors.sh"
 source "${_SETTER_DIR}/utils/util.sh"
 
-src_file="sol.out"
 input_dir="in"
 output_dir="out"
 time_limit="1s"
@@ -31,10 +28,9 @@ fi
 
 function usage() {
   cat << EOF
-Usage: ${__script_name} [options...]
+Usage: ${__script_name} [options...] <solution>
 
 Options:
-  -s, --source <file>       Source file to check (default: ${src_file})
   -i, --input-dir <dir>     Directory that contains input files (default: ${input_dir})
   -o, --output-dir <dir>    Directory that contains output files (default: ${output_dir})
   -t, --time <second>       Set time limit (default: ${time_limit})
@@ -43,11 +39,11 @@ Options:
 EOF
 }
 
-options='hs:i:o:t:m:'
-long_options='help,source:,input:,output:,time:,memory:'
+options='i:o:t:m:h'
+long_options='input:,output:,time:,memory:,help'
 
 OPTS=$(getopt --name "$__script_name" --options "$options" \
-      --longoptions "$long_options" -- "$@")
+       --longoptions "$long_options" -- "$@")
 
 if (( $? != 0 )); then
   show_try_help
@@ -57,10 +53,6 @@ eval set -- "$OPTS"
 
 while true; do
   case "$1" in
-    -h | --help)
-      usage; exit 0;;
-    -s | --source)
-      src_file="$2"; shift 2 ;;
     -i | --input-dir)
       input_dir="$2"; shift 2 ;;
     -o | --output-dir)
@@ -69,16 +61,41 @@ while true; do
       time_limit="${2%s}s"; shift 2 ;;
     -m | --memory)
       memory_limit="$2"; shift 2 ;;
+    -h | --help)
+      usage; exit 0;;
     --)
       shift; break ;;
     *)
-      echo "Unknown option: $1" >&2; shift ;;
+      ecerr "unknown option: $1"; shift ;;
   esac
 done
 
-if [[ ! -x "$src_file" ]]; then
-  ecerr "'%s' is not executable file" "$src_file"
-  exit 2
+if (( $# < 1 )); then
+  usage
+  exit 1
+fi
+
+solution="$1"
+ext_file="${solution##*.}"
+case "$ext_file" in
+  cpp | c\+\+)
+    ecerr "not implemented: cannot handle ${ext_file} file"
+    exit 1
+    ;;
+  out)
+    if [[ ! -x "$solution" ]]; then
+      ecerr "'%s' is not executable" "$solution"
+      exit 1
+    fi
+    ;;
+  *)
+    ecerr "solution must be a executable or cpp file"
+    exit 1
+    ;;
+esac
+
+if [[ "$(basename "$solution")" == "$solution" ]]; then
+  solution="./${solution}"
 fi
 
 if [[ ! -d "$input_dir" ]]; then
@@ -91,13 +108,9 @@ if [[ ! -d "$output_dir" ]]; then
   exit 2
 fi
 
-if [[ "$(basename "$src_file")" == "$src_file" ]]; then
-  src_file="./${src_file}"
-fi
+num_inp_files=$(find "$input_dir" -iname "*.in" | wc -l)
 
-input_num=$(find "$input_dir" -iname "*.in" | wc -l)
-
-if (( input_num == 0 )); then
+if (( num_inp_files == 0 )); then
   ecerr "no input file found in '%s'" "$input_dir"
   exit 2
 fi
@@ -120,22 +133,22 @@ max_memory=
 for input in "${input_dir}"/*.in; do
   input_basename=$(basename "$input" .in)
   ans="${output_dir}/${input_basename}.out"
-  echo -en " (${LIGHT_GREEN}${input_cnt}${RESET}/${MAGENTA}${input_num}${RESET}) ${input}"
+  echo -en " (${LIGHT_GREEN}${input_cnt}${RESET}/${MAGENTA}${num_inp_files}${RESET}) ${input}"
   if [[ ! -f "$ans" ]]; then
-    echo -e "\t${GRAY}SKIP${RESET} (${B_BLUE}${ans}${RESET} not found)"
+    echo -e "\t${B_RED}SKIPPED${RESET} (${B_BLUE}${ans}${RESET} not found)"
     exit_code=1
     continue
   fi
 
   timeout "$time_limit" "$time_command" -f "$exec_info_format" -o "$exec_info_file" \
-      "$src_file" < "$input" > "$output_temp_file"
+      "$solution" < "$input" > "$output_temp_file"
   exec_exit_code=$?
   if (( exec_exit_code != 0 )); then
     if (( exec_exit_code == 124 )); then 
       # command times out 
       echo -e "\t${B_RED}TLE${RESET} (> $time_limit)"
     else
-      # assume exit code is returned by `src_file`
+      # assume exit code is returned by `solution`
       echo -e "\t${B_RED}RUN TIME${RESET} (exit_code=$exec_exit_code)"
     fi
     exit_code=1
@@ -161,8 +174,8 @@ for input in "${input_dir}"/*.in; do
   input_cnt+=1
 done
 
-echo "Total AC     : ${total_ac}/${input_num}"
 echo "Finished in  : ${total_exec_time}s"
+echo "Total AC     : ${total_ac}/${num_inp_files}"
 echo "Max run time : ${max_exec_time}s"
 echo "Max memory   : $(( max_memory / 1024)) MB"
 exit $exit_code

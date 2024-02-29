@@ -8,14 +8,11 @@
 
 declare -r __script_name='setter gen'
 
-if [[ -f "${_SETTER_DIR}/env/colors.sh" ]]; then
-  source "${_SETTER_DIR}/env/colors.sh"
-fi
+source "${_SETTER_DIR}/env/colors.sh"
 source "${_SETTER_DIR}/utils/util.sh"
 
 input_dir="in"
 output_dir="out"
-checker="checker.out"
 time_command="$(which time 2> /dev/null)" # do not use time shell keyword
 
 if [[ -z "$time_command" ]]; then
@@ -28,21 +25,20 @@ fi
 
 function usage() {
   cat << EOF
-Usage: ${__script_name} [options...]
+Usage: ${__script_name} [options...] <checker>
 
 Options:
-  -c, --checker <file>      Checker file to run (default: ${checker})
   -i, --input-dir <dir>     Directory that contains input files (default: ${input_dir})
   -o, --output-dir <dir>    Directory to place output files (default: ${output_dir})
   -h, --help                Show this help message
 EOF
 }
 
-options='c:i:o:h'
-long_options='checker:,input:,output:,help'
+options='i:o:h'
+long_options='input:,output:,help'
 
 OPTS=$(getopt --name "$__script_name" --options "$options" \
-      --longoptions "$long_options" -- "$@")
+       --longoptions "$long_options" -- "$@")
 
 if (( $? != 0 )); then
   show_try_help
@@ -52,24 +48,45 @@ eval set -- "$OPTS"
 
 while true; do
   case "$1" in
-    -h | --help)
-      usage; exit 0 ;;
-    -c | --checker)
-      checker="$2"; shift 2 ;;
     -i | --input-dir)
       input_dir="$2"; shift 2 ;;
     -o | --output-dir)
       output_dir="$2"; shift 2 ;;
+    -h | --help)
+      usage; exit 0 ;;
     --)
       shift; break ;;
     *)
-      echo "Unknown option: $1" >&2; shift ;;
+      ecerr "unknown option: $1"; shift ;;
   esac
 done
 
-if [[ ! -f "$checker" ]]; then
-  ecerr "could not find checker file: %s" "$checker"
-  exit 2
+if (( $# < 1 )); then
+  usage
+  exit 1
+fi
+
+checker="$1"
+ext_file="${checker##*.}"
+case "$ext_file" in
+  cpp | c\+\+)
+    ecerr "not implemented: cannot handle ${ext_file} file"
+    exit 1
+    ;;
+  out)
+    if [[ ! -x "$checker" ]]; then
+      ecerr "'%s' is not executable" "$checker"
+      exit 1
+    fi
+    ;;
+  *)
+    ecerr "checker must be a executable or cpp file"
+    exit 1
+    ;;
+esac
+
+if [[ "$(basename "$checker")" == "$checker" ]]; then
+  checker="./${checker}"
 fi
 
 if [[ ! -d "$input_dir" ]]; then
@@ -90,13 +107,9 @@ fi
 
 mkdir -p "$output_dir"
 
-if [[ "$(basename "$checker")" == "$checker" ]]; then
-  checker="./${checker}"
-fi
+num_inp_files=$(find "$input_dir" -iname "*.in" | wc -l)
 
-input_num=$(find "$input_dir" -iname "*.in" | wc -l)
-
-if (( input_num == 0 )); then
+if (( num_inp_files == 0 )); then
   ecerr "no input file found in '%s'" "$input_dir"
   exit 2
 fi
@@ -115,7 +128,7 @@ exit_code=0
 for input in "${input_dir}"/*.in; do
   input_basename=$(basename "$input" .in)
   output="${output_dir}/${input_basename}.out"
-  echo -en " (${LIGHT_GREEN}${input_cnt}${RESET}/${MAGENTA}${input_num}${RESET}) ${input}"
+  echo -en " (${LIGHT_GREEN}${input_cnt}${RESET}/${MAGENTA}${num_inp_files}${RESET}) ${input}"
   "$time_command" -f "$exec_info_format" -o "$exec_info_file" \
       "$checker" < "$input" > "$output" 2> /dev/null 
 
