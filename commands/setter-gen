@@ -10,6 +10,7 @@ declare -r __script_name='setter gen'
 
 source "${_SETTER_DIR}/env/colors.sh"
 source "${_SETTER_DIR}/utils/util.sh"
+source "${_SETTER_DIR}/utils/comp.sh"
 
 input_dir="in"
 output_dir="out"
@@ -69,15 +70,19 @@ fi
 checker="$1"
 ext_file="${checker##*.}"
 case "$ext_file" in
-  cpp | c\+\+)
-    ecerr "not implemented: cannot handle ${ext_file} file"
-    exit 1
-    ;;
   out)
     if [[ ! -x "$checker" ]]; then
       ecerr "'%s' is not executable" "$checker"
       exit 1
     fi
+    ;;
+  cpp | c\+\+)
+    exec_file="$(comp "$checker")"
+    if [[ -z "$exec_file" ]]; then
+      ecerr "failed to compile '%s'" "$checker"
+      exit 1
+    fi
+    checker="$exec_file"
     ;;
   *)
     ecerr "checker must be a executable or cpp file"
