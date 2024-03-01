@@ -114,35 +114,33 @@ if (( num_inp_files == 0 )); then
   exit 2
 fi
 
-declare -i input_cnt=1
-exec_info_file="$(mktemp)"
-exec_info_format=$(cat << EOF
-elapsed time:%e
-memory:%M
-EOF
-)
+input_cnt=1
+resources_format="%e;%M"
+resources_file="$(mktemp)"
 
-trap 'rm -f "${exec_info_file}"' EXIT
+trap 'rm "$resources_file"' EXIT
 
 exit_code=0
 for input in "${input_dir}"/*.in; do
   input_basename=$(basename "$input" .in)
   output="${output_dir}/${input_basename}.out"
   echo -en " (${LIGHT_GREEN}${input_cnt}${RESET}/${MAGENTA}${num_inp_files}${RESET}) ${input}"
-  "$time_command" -f "$exec_info_format" -o "$exec_info_file" \
-      "$checker" < "$input" > "$output" 2> /dev/null 
+  $time_command -f "$resources_format" -o "$resources_file" \
+      "$checker" < "$input" > "$output" 2> /dev/null
 
-  if (( $? != 0 )); then
+  running_exit_code=$?
+  if (( running_exit_code != 0 )); then
     echo -e "\t${B_RED}FAILED${RESET}"
     rm -f "$output"
     exit_code=1
   else
-    elapsed_time=$(cat "$exec_info_file" | grep 'elapsed time' | awk -F: '{print $2}')
-    memory=$(cat "$exec_info_file" | grep 'memory' | awk -F: '{print $2}')
-    memory=$(( memory / 1024 ))
-    echo -e "${LIGHT_BLUE}\t-->${RESET} ${output}\t${B_GREEN}OK${RESET} (${elapsed_time}s, ${memory} MB)"
+    elapsed_time="$(awk -F';' '{print $1}' "$resources_file")"
+    memory_usage="$(awk -F';' '{print $2}' "$resources_file")"
+    (( memory_usage *= 1000 ))
+    memory_usage="$(echo "$memory_usage" | numfmt --to=si --format="%0.1f" --suffix=B)"
+    echo -e "${LIGHT_BLUE}\t-->${RESET} ${output}\t${B_GREEN}OK${RESET} (${elapsed_time}s, ${memory_usage})"
   fi
-  input_cnt+=1
+  (( input_cnt += 1 ))
 done
 
 exit $exit_code

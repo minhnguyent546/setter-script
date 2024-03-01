@@ -115,15 +115,13 @@ if (( num_inp_files == 0 )); then
   exit 2
 fi
 
-declare -i input_cnt=1 total_ac=0
+input_cnt=1
+total_ac=0
 output_temp_file="$(mktemp)"
-exec_info_file="$(mktemp)"
-exec_info_format=$(cat << EOF
-elapsed time:%e
-memory:%M
-EOF
-)
-trap 'rm "$exec_info_file" "$output_temp_file"' EXIT
+resources_format="%e;%M"
+resources_file="$(mktemp)"
+
+trap 'rm "$resources_file" "$output_temp_file"' EXIT
 
 exit_code=0
 total_exec_time=0
@@ -140,7 +138,7 @@ for input in "${input_dir}"/*.in; do
     continue
   fi
 
-  timeout "$time_limit" "$time_command" -f "$exec_info_format" -o "$exec_info_file" \
+  timeout "$time_limit" "$time_command" -f "$resources_format" -o "$resources_file" \
       "$solution" < "$input" > "$output_temp_file"
   exec_exit_code=$?
   if (( exec_exit_code != 0 )); then
@@ -157,25 +155,28 @@ for input in "${input_dir}"/*.in; do
     echo -e "\t${B_RED}WA${RESET}"
     exit_code=1
   else
-    elapsed_time=$(cat "$exec_info_file" | grep 'elapsed time' | awk -F: '{print $2}')
-    memory=$(cat "$exec_info_file" | grep 'memory' | awk -F: '{print $2}')
+    elapsed_time="$(awk -F';' '{print $1}' "$resources_file")"
+    memory_usage="$(awk -F';' '{print $2}' "$resources_file")"
+    (( memory_usage *= 1000 ))
 
     if [[ -z "$max_exec_time" ]] || (( $(echo "$max_exec_time < $elapsed_time" | bc -l) )); then
       max_exec_time="$elapsed_time"
     fi
-    if [[ -z "$max_memory" ]] || (( $(echo "$max_memory < $memory" | bc -l) )); then
-      max_memory="$memory"
+    if [[ -z "$max_memory" ]] || (( $(echo "$max_memory < $memory_usage" | bc -l) )); then
+      max_memory="$memory_usage"
     fi
-    memory=$(( memory / 1024 ))
+
+    memory_usage="$(echo "$memory_usage" | numfmt --to=si --format="%0.1f" --suffix=B)"
     total_exec_time=$( echo "$total_exec_time + $elapsed_time" | bc -l )
-    echo -e "\t${B_GREEN}OK${RESET} (${elapsed_time}s, ${memory} MB)"
-    total_ac+=1
+    echo -e "\t${B_GREEN}OK${RESET} (${elapsed_time}s, ${memory_usage})"
+    (( total_ac += 1 ))
   fi
-  input_cnt+=1
+  (( input_cnt += 1 ))
 done
 
+max_memory="$(echo "$max_memory" | numfmt --to=si --format="%0.1f" --suffix=B)"
 echo "Finished in  : ${total_exec_time}s"
 echo "Total AC     : ${total_ac}/${num_inp_files}"
 echo "Max run time : ${max_exec_time}s"
-echo "Max memory   : $(( max_memory / 1024)) MB"
+echo "Max memory   : $max_memory"
 exit $exit_code
