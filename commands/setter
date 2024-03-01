@@ -14,7 +14,7 @@ export PATH="$PATH:${commands_path}"
 
 source "${_SETTER_DIR}/utils/util.sh"
 
-function usage() {
+usage() {
   cat << EOF
 Usage: ${__script_name} [options...] <command>
 
@@ -28,7 +28,7 @@ Available commands:
 EOF
 }
 
-function version() {
+version() {
   printf "%s v%s\n" "${__script_name}" "${__script_version}"
 }
 

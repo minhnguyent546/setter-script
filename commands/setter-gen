@@ -23,7 +23,7 @@ if ! cmd_exists "timeout"; then
   missing_cmd "timeout"
 fi
 
-function usage() {
+usage() {
   cat << EOF
 Usage: ${__script_name} [options...] <checker>
 
