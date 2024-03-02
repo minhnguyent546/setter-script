@@ -8,13 +8,12 @@ source "${_SETTER_DIR}/utils/util.sh"
 
 comp() {
   local quiet=false
+  local CXX="${CXX:-g++}"
+  local CPP_VERSION="${CPP_VERSION:-c++20}"
+  local CXXFLAGS="${CXXFLAGS:--std=$CPP_VERSION -Wall -Wextra}"
+  local TO_NANO="1000000000"
+
   file="$1"
-
-  CXX="${CXX:-g++}"
-  CPP_VERSION="${CPP_VERSION:-c++20}"
-  CXXFLAGS="${CXXFLAGS:--std=$CPP_VERSION -Wall -Wextra}"
-  TO_NANO="1000000000"
-
   file="${file%.cpp}.cpp"
 
   if [[ ! -f "$file" ]]; then
