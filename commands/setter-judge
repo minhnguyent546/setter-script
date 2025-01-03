@@ -78,6 +78,11 @@ fi
 
 solution="$1"
 ext_file="${solution##*.}"
+if [[ "$ext_file" == "$solution" ]]; then
+  # the file has no extension, so assume it's .cpp file
+  ext_file="cpp"
+  solution="${solution}.cpp"
+fi
 
 case "$ext_file" in
   out)
@@ -133,6 +138,7 @@ exit_code=0
 total_exec_time=0
 max_exec_time=
 max_memory=
+dots='.....'
 
 for input in "${input_dir}"/*.in; do
   input_basename=$(basename "$input" .in)
@@ -150,10 +156,10 @@ for input in "${input_dir}"/*.in; do
   if (( exec_exit_code != 0 )); then
     if (( exec_exit_code == 124 )); then 
       # command times out 
-      echo -e "\t${B_RED}TLE${RESET} (> $time_limit)"
+      echo -e "${dots}${B_RED}TLE${RESET} (> $time_limit)"
     else
       # assume exit code is returned by `solution`
-      echo -e "\t${B_RED}RUN TIME${RESET} (exit_code=$exec_exit_code)"
+      echo -e "${dots}${B_RED}RUN TIME${RESET} (exit_code=$exec_exit_code)"
     fi
     exit_code=1
   elif ! diff -Zb "$output_temp_file" "$ans" &> /dev/null; then
@@ -174,15 +180,20 @@ for input in "${input_dir}"/*.in; do
 
     memory_usage="$(echo "$memory_usage" | numfmt --to=si --format="%0.1f" --suffix=B)"
     total_exec_time=$( echo "$total_exec_time + $elapsed_time" | bc -l )
-    echo -e "\t${B_GREEN}OK${RESET} (${elapsed_time}s, ${memory_usage})"
+    printf "${dots}${B_GREEN}OK${RESET} (%ss, %s)\n" "$elapsed_time" "$memory_usage"
     (( total_ac += 1 ))
   fi
   (( input_cnt += 1 ))
 done
 
 max_memory="$(echo "$max_memory" | numfmt --to=si --format="%0.1f" --suffix=B)"
-echo "Finished in  : ${total_exec_time}s"
+echo -n "Finished in  : ${total_exec_time}s"
+if (( exit_code != 0 )); then
+  printf " (with errors)\n"
+else
+  printf "\n"
+fi
 echo "Total AC     : ${total_ac}/${num_inp_files}"
 echo "Max run time : ${max_exec_time}s"
-echo "Max memory   : $max_memory"
+echo "Memory used  : $max_memory"
 exit $exit_code

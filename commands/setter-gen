@@ -69,6 +69,12 @@ fi
 
 checker="$1"
 ext_file="${checker##*.}"
+if [[ "$ext_file" == "$checker" ]]; then
+  # the file has no extension, so assume it's .cpp file
+  ext_file="cpp"
+  checker="${checker}.cpp"
+fi
+
 case "$ext_file" in
   out)
     if [[ ! -x "$checker" ]]; then
