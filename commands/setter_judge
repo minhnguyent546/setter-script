@@ -151,7 +151,7 @@ for input in "${input_dir}"/*.in; do
   fi
 
   timeout "$time_limit" "$time_command" -f "$resources_format" -o "$resources_file" \
-      "$solution" < "$input" > "$output_temp_file"
+      "$solution" < "$input" > "$output_temp_file" 2> /dev/null
   exec_exit_code=$?
   if (( exec_exit_code != 0 )); then
     if (( exec_exit_code == 124 )); then 
