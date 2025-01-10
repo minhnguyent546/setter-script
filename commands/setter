@@ -43,7 +43,7 @@ case "$subcommand" in
     show_try_help
     exit 2 ;;
   *)
-    command_path="$(command -v "${__script_name}-${subcommand}")"
+    command_path="$(command -v "${__script_name}_${subcommand}")"
     if [[ ! -x "$command_path" ]]; then
       ecerr "unknown command '%s'" "$subcommand"
       show_try_help

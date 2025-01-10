@@ -3,7 +3,7 @@
 # judging a solution locally
 #
 # requires:
-#   time (not a built-in keyword one)
+#   time (not a built-in keyword one, can be installed with `sudo apt install -y time`)
 #   timeout
 #
 

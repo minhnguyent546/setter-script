@@ -3,7 +3,7 @@
 # generating output files from provided input files
 #
 # requires:
-#   time (not a shell keyword one)
+#   time (not a shell keyword one, can be installed with `sudo apt install -y time`)
 #
 
 declare -r __script_name='setter gen'
