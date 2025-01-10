@@ -29,14 +29,14 @@ usage() {
 Usage: ${__script_name} [options...] <checker>
 
 Options:
-  -i, --input-dir <dir>     Directory that contains input files (default: ${input_dir})
-  -o, --output-dir <dir>    Directory to place output files (default: ${output_dir})
+  -i, --input_dir <dir>     Directory that contains input files (default: ${input_dir})
+  -o, --output_dir <dir>    Directory to place output files (default: ${output_dir})
   -h, --help                Show this help message
 EOF
 }
 
 options='i:o:h'
-long_options='input:,output:,help'
+long_options='input_dir:,output_dir:,help'
 
 OPTS=$(getopt --name "$__script_name" --options "$options" \
        --longoptions "$long_options" -- "$@")
@@ -49,9 +49,9 @@ eval set -- "$OPTS"
 
 while true; do
   case "$1" in
-    -i | --input-dir)
+    -i | --input_dir)
       input_dir="$2"; shift 2 ;;
-    -o | --output-dir)
+    -o | --output_dir)
       output_dir="$2"; shift 2 ;;
     -h | --help)
       usage; exit 0 ;;
@@ -132,6 +132,8 @@ resources_file="$(mktemp)"
 trap 'rm "$resources_file"' EXIT
 
 exit_code=0
+dots='.....'
+
 for input in "${input_dir}"/*.in; do
   input_basename=$(basename "$input" .in)
   output="${output_dir}/${input_basename}.out"
@@ -141,7 +143,7 @@ for input in "${input_dir}"/*.in; do
 
   running_exit_code=$?
   if (( running_exit_code != 0 )); then
-    echo -e "\t${B_RED}FAILED${RESET}"
+    echo -e "${dots}${B_RED}FAILED${RESET}"
     rm -f "$output"
     exit_code=1
   else
@@ -149,7 +151,7 @@ for input in "${input_dir}"/*.in; do
     memory_usage="$(awk -F';' '{print $2}' "$resources_file")"
     (( memory_usage *= 1000 ))
     memory_usage="$(echo "$memory_usage" | numfmt --to=si --format="%0.1f" --suffix=B)"
-    echo -e "${LIGHT_BLUE}\t-->${RESET} ${output}\t${B_GREEN}OK${RESET} (${elapsed_time}s, ${memory_usage})"
+    echo -e "${dots}${LIGHT_BLUE}-->${RESET} ${output}\t${B_GREEN}OK${RESET} (${elapsed_time}s, ${memory_usage})"
   fi
   (( input_cnt += 1 ))
 done

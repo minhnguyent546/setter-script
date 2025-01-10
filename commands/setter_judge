@@ -32,8 +32,8 @@ usage() {
 Usage: ${__script_name} [options...] <solution>
 
 Options:
-  -i, --input-dir <dir>     Directory that contains input files (default: ${input_dir})
-  -o, --output-dir <dir>    Directory that contains output files (default: ${output_dir})
+  -i, --input_dir <dir>     Directory that contains input files (default: ${input_dir})
+  -o, --output_dir <dir>    Directory that contains output files (default: ${output_dir})
   -t, --time <second>       Set time limit (default: ${time_limit})
   -m, --memory <memory>     Set memory limit (default: ${memory_limit})
   -h, --help                Show this help message
@@ -41,7 +41,7 @@ EOF
 }
 
 options='i:o:t:m:h'
-long_options='input:,output:,time:,memory:,help'
+long_options='input_dir:,output_dir:,time:,memory:,help'
 
 OPTS=$(getopt --name "$__script_name" --options "$options" \
        --longoptions "$long_options" -- "$@")
@@ -54,9 +54,9 @@ eval set -- "$OPTS"
 
 while true; do
   case "$1" in
-    -i | --input-dir)
+    -i | --input_dir)
       input_dir="$2"; shift 2 ;;
-    -o | --output-dir)
+    -o | --output_dir)
       output_dir="$2"; shift 2 ;;
     -t | --time)
       time_limit="${2%s}s"; shift 2 ;;
@@ -164,7 +164,7 @@ for input in "${input_dir}"/*.in; do
     exit_code=1
   elif ! diff -Zb "$output_temp_file" "$ans" &> /dev/null; then
     # wrong answer
-    echo -e "\t${B_RED}WA${RESET}"
+    echo -e "${dots}${B_RED}WA${RESET}"
     exit_code=1
   else
     elapsed_time="$(awk -F';' '{print $1}' "$resources_file")"

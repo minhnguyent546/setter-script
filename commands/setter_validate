@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+
+# validate test cases
+# your .cpp file should receive a positional argument `subtask_id` to decide
+# which subtask to validate for
+
+declare -r __script_name='setter validate'
+
+source "${_SETTER_DIR}/env/colors.sh"
+source "${_SETTER_DIR}/utils/util.sh"
+source "${_SETTER_DIR}/utils/comp.sh"
+
+UNSET=9999999999
+input_dir="in"
+num_subtasks="$UNSET"
+
+usage() {
+  cat << EOF
+Usage: ${__script_name} [options...] <validator>
+
+Options:
+  -i, --input_dir <dir>       Directory that contains input files (default: ${input_dir})
+  -n, --num_subs <dir>    Number of subtasks (default: ${num_subtasks})
+  -h, --help                  Show this help message
+EOF
+}
+
+options='i:n:h'
+long_options='input_dir:,num_subs:,help'
+
+OPTS=$(getopt --name "$__script_name" --options "$options" \
+       --longoptions "$long_options" -- "$@")
+
+if (( $? != 0 )); then
+  show_try_help
+  exit 2
+fi
+eval set -- "$OPTS"
+
+while true; do
+  case "$1" in
+    -i | --input_dir)
+      input_dir="$2"; shift 2 ;;
+    -n | --num_subs)
+      num_subtasks="$2"; shift 2 ;;
+    -h | --help)
+      usage; exit 0 ;;
+    --)
+      shift; break ;;
+    *)
+      ecerr "unknown option: $1"; shift ;;
+  esac
+done
+
+if (( $# < 1 )); then
+  usage
+  exit 1
+fi
+
+if (( num_subtasks < 1 )); then
+  ecerr "invalid number of subtasks, must be a positive number"
+  exit 1
+elif (( num_subtasks == UNSET )); then
+  ecerr "please specify the number of subtasks via -n/--num_subs"
+  exit 1
+fi
+
+validator="$1"
+ext_file="${validator##*.}"
+if [[ "$ext_file" == "$validator" ]]; then
+  # the file has no extension, so assume it's .cpp file
+  ext_file="cpp"
+  validator="${validator}.cpp"
+fi
+
+case "$ext_file" in
+  out)
+    if [[ ! -x "$validator" ]]; then
+      ecerr "'%s' is not executable" "$validator"
+      exit 1
+    fi
+    ;;
+  cpp | c\+\+)
+    exec_file="$(comp "$validator")"
+    if [[ -z "$exec_file" ]]; then
+      ecerr "failed to compile '%s'" "$validator"
+      exit 1
+    fi
+    validator="$exec_file"
+    ;;
+  *)
+    ecerr "validator must be a executable or cpp file"
+    exit 1
+    ;;
+esac
+
+if [[ "$(basename "$validator")" == "$validator" ]]; then
+  validator="./${validator}"
+fi
+
+if [[ ! -d "$input_dir" ]]; then
+  ecerr "could not find input directory: %s" "$input_dir"
+  exit 2
+fi
+
+input_dir="$(realpath "$input_dir")"
+dots='.....'
+for (( subtask_id = 1; subtask_id <= num_subtasks; ++subtask_id )); do
+  readarray -d '' subtask_files < <(find "$input_dir" -regex "${input_dir}/subtask_[0-9]*${subtask_id}_[0-9]+.in" -print0 | sort -z)
+  num_inp_files="${#subtask_files[@]}"
+  if (( num_inp_files <= 0 )); then
+    ecerr "Warning: no input file found for subtask $subtask_id"
+    continue
+  fi
+
+  echo -e "${B_MAGENTA}Subtask ${subtask_id}:${RESET} ${#subtask_files[@]} files found"
+  input_cnt=0
+  for input_file in "${subtask_files[@]}"; do
+    bname="$(basename "$input_file")"
+    echo -en " (${LIGHT_GREEN}$(( input_cnt + 1 ))${RESET}/${MAGENTA}${num_inp_files}${RESET}) ${bname}${dots}"
+
+    "$validator" "$subtask_id" < "$input_file"
+    running_exit_code="$?"
+    if (( running_exit_code != 0 )); then
+      echo -e "${B_RED}FAILED${RESET}"
+      exit 1
+    else
+      echo -e "${B_GREEN}OK${RESET}"
+    fi
+
+    (( input_cnt += 1 ))
+  done
+  echo
+done

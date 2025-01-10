@@ -5,7 +5,7 @@
 #
 
 declare -r __script_name='setter'
-declare -r __script_version='0.2.0'
+declare -r __script_version='0.3.0'
 
 exec_file="$(readlink -f "$0")"
 commands_path="$(dirname "$exec_file")"
