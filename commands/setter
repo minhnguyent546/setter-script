@@ -25,6 +25,7 @@ Options:
 Available commands:
   judge                 Judge your solution
   gen                   Generate output from input files
+  validate		Validate input files with your validator
 EOF
 }
 
